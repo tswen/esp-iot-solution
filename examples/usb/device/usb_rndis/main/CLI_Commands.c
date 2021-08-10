@@ -74,7 +74,7 @@ static BaseType_t prvSetWiFiModeCommand( char *pcWriteBuffer, size_t xWriteBuffe
 
 static BaseType_t prvStartSmartCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
-static BaseType_t prvStopSmartCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
+static BaseType_t prvWiFiDisconnectCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
 static BaseType_t prvFreeCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
@@ -149,12 +149,12 @@ static const CLI_Command_Definition_t xStartSmartCommand =
 	0 /* No parameters are expected. */
 };
 
-/* Structure that defines the "smartconfig" command line command. */
-static const CLI_Command_Definition_t xStopSmartCommand =
+/* Structure that defines the "disconnect-wifi" command line command. */
+static const CLI_Command_Definition_t xDisconnectWiFiCommand =
 {
-	"stopsmart", /* The command string to type. */
-	"stopsmart: stop smartconfig\r\n",
-	prvStopSmartCommand, /* The function to run. */
+	"disconnect-wifi", /* The command string to type. */
+	"disconnect-wifi: disconnect from the AP\r\n",
+	prvWiFiDisconnectCommand, /* The function to run. */
 	0 /* No parameters are expected. */
 };
 
@@ -209,7 +209,7 @@ void vRegisterCLICommands( void )
 	FreeRTOS_CLIRegisterCommand( &xQueryCommand );
 	FreeRTOS_CLIRegisterCommand( &xSetWiFiModeCommand );
 	FreeRTOS_CLIRegisterCommand( &xStartSmartCommand );
-	FreeRTOS_CLIRegisterCommand( &xStopSmartCommand );
+	FreeRTOS_CLIRegisterCommand( &xDisconnectWiFiCommand );
 	FreeRTOS_CLIRegisterCommand( &xScanCommand );
 	FreeRTOS_CLIRegisterCommand( &xFreeCommand );
 	FreeRTOS_CLIRegisterCommand( &xHeapCommand );
@@ -331,6 +331,8 @@ BaseType_t SSIDLength;
 		/* TODO */
 		wifi_cmd_sta_scan(pcSSID);
 	}
+
+	sprintf(pcWriteBuffer, "\r\nStart scan the AP\r\n");
 
 	/* There is no more data to return after this single string, so return
 	pdFALSE. */
@@ -457,13 +459,15 @@ static BaseType_t prvStartSmartCommand( char *pcWriteBuffer, size_t xWriteBuffer
 	configASSERT( pcWriteBuffer );
 	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
 
-	wifi_cmd_start_smart_config();
+	if (wifi_cmd_start_smart_config() == ESP_FAIL) {
+		sprintf(pcWriteBuffer, "\r\nSmartConfig Task has been created, Don't create repeatedly\r\n");
+	}
 
 	return pdFALSE;
 }
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvStopSmartCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
+static BaseType_t prvWiFiDisconnectCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
@@ -473,10 +477,8 @@ static BaseType_t prvStopSmartCommand( char *pcWriteBuffer, size_t xWriteBufferL
 	configASSERT( pcWriteBuffer );
 	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
 
-	if (wifi_cmd_stop_smart_config() == ESP_OK) {
-		sprintf(pcWriteBuffer, "\r\nSmartConfig Task has been stopped\r\n");
-	} else {
-		sprintf(pcWriteBuffer, "\r\nSmartConfig Task stop failed\r\n");
+	if (wif_cmd_disconnect_wifi() == ESP_OK) {
+		sprintf(pcWriteBuffer, "\r\nSuccessfully disconnected from the AP\r\n");
 	}
 
 	return pdFALSE;

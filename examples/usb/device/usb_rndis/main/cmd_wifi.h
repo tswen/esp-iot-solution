@@ -37,6 +37,8 @@ esp_err_t wifi_cmd_start_smart_config(void);
 
 esp_err_t wifi_cmd_stop_smart_config(void);
 
+esp_err_t wif_cmd_disconnect_wifi(void);
+
 #ifdef __cplusplus
 }
 #endif

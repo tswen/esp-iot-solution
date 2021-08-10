@@ -68,7 +68,7 @@ static void scan_done_handler(void* arg, esp_event_base_t event_base,
     uint16_t sta_number = 0;
     uint8_t i;
     wifi_ap_record_t *ap_list_buffer;
-    char *scan_buf = (char *)malloc(128);
+    char *scan_buf = (char *)malloc(64);
     size_t lenth = 0;
 
     esp_wifi_scan_get_ap_num(&sta_number);
@@ -82,10 +82,6 @@ static void scan_done_handler(void* arg, esp_event_base_t event_base,
         ESP_LOGE(TAG, "Failed to malloc buffer to print scan results");
         return;
     }
-
-    lenth = sprintf(scan_buf, "\r\nStart scan the AP\r\n");
-    tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)scan_buf, lenth);
-    tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
 
     if (esp_wifi_scan_get_ap_records(&sta_number,(wifi_ap_record_t *)ap_list_buffer) == ESP_OK) {        
         for(i=0; i<sta_number; i++) {
@@ -124,13 +120,15 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
         xEventGroupSetBits(wifi_event_group, DISCONNECTED_BIT);
         printf("DISCONNECTED_BIT\r\n");
-    } else if (event_base == IP_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
-        ESP_LOGI(TAG, "Wi-Fi STA connected");
-        esp_wifi_internal_reg_rxcb(ESP_IF_WIFI_STA, pkt_wifi2usb);
-        s_wifi_is_connected = true;
-        xEventGroupClearBits(wifi_event_group, DISCONNECTED_BIT);
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-        printf("CONNECTED_BIT\r\n");
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
+        if (smart_config == false) {
+            ESP_LOGI(TAG, "Wi-Fi STA connected");
+            esp_wifi_internal_reg_rxcb(ESP_IF_WIFI_STA, pkt_wifi2usb);
+            s_wifi_is_connected = true;
+            xEventGroupClearBits(wifi_event_group, DISCONNECTED_BIT);
+            xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+            printf("CONNECTED_BIT\r\n");
+        }
     } else if (event_base == SC_EVENT && event_id == SC_EVENT_SCAN_DONE) {
         ESP_LOGI(TAG, "Scan done");
     } else if (event_base == SC_EVENT && event_id == SC_EVENT_FOUND_CHANNEL) {
@@ -253,6 +251,19 @@ esp_err_t wifi_cmd_sta_join(const char* ssid, const char* pass)
     return ESP_OK;
 }
 
+esp_err_t wif_cmd_disconnect_wifi(void)
+{
+    int bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, 0, 1, 0);
+    if (bits & CONNECTED_BIT) {
+        reconnect = false;
+        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+        ESP_ERROR_CHECK( esp_wifi_disconnect() );
+        xEventGroupWaitBits(wifi_event_group, DISCONNECTED_BIT, 0, 1, portTICK_RATE_MS);
+        return ESP_OK;
+    }
+    return ESP_FAIL;
+}
+
 esp_err_t wifi_cmd_sta_scan(const char* ssid)
 {
     wifi_scan_config_t scan_config = { 0 };
@@ -338,6 +349,7 @@ static void smartconfig_task(void * parm)
     tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)sm_buf, lenth);
     tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
     wait = true;
+    wif_cmd_disconnect_wifi();
     ESP_ERROR_CHECK(esp_smartconfig_start(&cfg));
     while (1) {
         uxBits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT | ESPTOUCH_DONE_BIT, true, false, portMAX_DELAY);
