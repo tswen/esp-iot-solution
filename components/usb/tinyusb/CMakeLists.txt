@@ -30,6 +30,7 @@ if(CONFIG_TINYUSB)
         "${IDF_PATH}/components/tinyusb/tinyusb/hw/bsp/"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/device"
+        "${IDF_PATH}/components/tinyusb/tinyusb/lib/networking"
         #"additions/include_private"
         )
 
@@ -52,6 +53,7 @@ if(CONFIG_TINYUSB)
         "${IDF_PATH}/components/tinyusb/tinyusb/src/device/usbd_control.c"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/device/usbd.c"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/tusb.c"
+        "${IDF_PATH}/components/tinyusb/tinyusb/lib/networking/rndis_reports.c"
         "additions/src/descriptors_control.c"
         "additions/src/tinyusb.c"
         "additions/src/tusb_tasks.c"
@@ -79,6 +81,12 @@ if(CONFIG_TINYUSB)
       list(APPEND srcs
           "additions/src/tusb_msc.c")
     endif()
+
+    if(CONFIG_TINYUSB_NET_ENABLED)
+      list(APPEND srcs
+          "additions/dummy/src/class/net/net_device.c")
+    endif()
+
 endif() # CONFIG_TINYUSB
 
 idf_component_register(SRCS ${srcs}

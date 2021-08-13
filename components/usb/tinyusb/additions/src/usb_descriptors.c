@@ -114,6 +114,12 @@ tusb_desc_strarray_device_t descriptor_str_kconfig = {
     "",
 #endif
 
+#if CONFIG_TINYUSB_USB_NET_ENABLED
+    CONFIG_TINYUSB_DESC_NET_STRING,          // 4: CDC Interface
+#else
+    "",
+#endif
+
 #if CONFIG_TINYUSB_MSC_ENABLED
     CONFIG_TINYUSB_DESC_MSC_STRING,          // 5: MSC Interface
 #else

@@ -112,6 +112,11 @@ menu "TinyUSB Stack"
                 default "Espressif HID Device"
                 help
                     Name of the HID device
+            config TINYUSB_DESC_NET_STRING
+                string "NET Device String"
+                default "Espressif NET Device"
+                help
+                    Name of the NET device.
         endmenu # "Descriptor configuration"
 
         menu "Massive Storage Class (MSC)"
@@ -171,6 +176,16 @@ menu "TinyUSB Stack"
                 help
                     HID FIFO size
         endmenu # "Human Interface Device Class"
+
+        menu "USB Network Class (RNDIS, ECM)"
+        
+            config TINYUSB_NET_ENABLED
+                bool "Enable TinyUSB NET driver"
+                default n
+                help
+                    Enable USB NET TinyUSB driver.
+
+        endmenu # "usb network"
     endif # TINYUSB
 
 endmenu # "TinyUSB Stack"
