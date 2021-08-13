@@ -11,7 +11,8 @@ if(NOT DEFINED ENV{IOT_SOLUTION_PATH})
     message(WARNING "Can't detect IOT_SOLUTION_PATH in your environment, we infer it is $ENV{IOT_SOLUTION_PATH}")
 endif()
 
-set(EXTRA_COMPONENT_DIRS $ENV{IOT_SOLUTION_PATH}/components/FreeRTOS-Plus-CLI)
+set(EXTRA_COMPONENT_DIRS $ENV{IOT_SOLUTION_PATH}/components/FreeRTOS-Plus-CLI
+                         $ENV{IOT_SOLUTION_PATH}/components/usb/tinyusb)
                             
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 

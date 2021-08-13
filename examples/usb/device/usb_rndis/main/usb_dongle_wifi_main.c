@@ -18,6 +18,7 @@
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 
@@ -27,13 +28,11 @@
 #include "esp_private/wifi.h"
 #include "sdkconfig.h"
 
-#include "semphr.h"
 
 #ifdef CONFIG_HEAP_TRACING
 #include "esp_heap_trace.h"
 #endif
 
-#include "tusb.h"
 #include "tinyusb.h"
 #include "tusb_cdc_acm.h"
 
@@ -59,7 +58,7 @@ static heap_trace_record_t trace_record[NUM_RECORDS]; // This buffer must be in 
 #define EPNUM_CDC_OUT     0x04
 
 static const char *TAG = "USB_Dongle_WiFi";
-static uint8_t buf[CONFIG_USB_CDC_RX_BUFSIZE + 1];
+static uint8_t buf[CONFIG_TINYUSB_CDC_RX_BUFSIZE + 1];
 extern bool s_wifi_is_connected;
 
 extern void Command_Parse(char* Cmd);
@@ -243,7 +242,7 @@ void tinyusb_cdc_rx_callback(int itf, cdcacm_event_t *event)
     size_t rx_size = 0;
 
     /* read */
-    esp_err_t ret = tinyusb_cdcacm_read(0, buf, CONFIG_USB_CDC_RX_BUFSIZE, &rx_size);
+    esp_err_t ret = tinyusb_cdcacm_read(0, buf, CONFIG_TINYUSB_CDC_RX_BUFSIZE, &rx_size);
     if (ret == ESP_OK) {
         buf[rx_size] = '\0';
         Command_Parse((char*)buf);

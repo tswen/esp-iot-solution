@@ -35,7 +35,7 @@
 #include "esp_smartconfig.h"
 #include "esp_private/wifi.h"
 
-#include "tusb.h"
+#include "tinyusb.h"
 #include "tusb_cdc_acm.h"
 
 #define ITF_NUM_CDC    0
@@ -57,7 +57,7 @@ const int ESPTOUCH_DONE_BIT = BIT2;
 esp_netif_t *ap_netif;
 esp_netif_t *sta_netif;
 
-uint8_t tud_network_mac_address[6] = {0x02,0x02,0x84,0x6A,0x96,0x00};
+const DRAM_ATTR uint8_t tud_network_mac_address[6] = {0x02,0x02,0x84,0x6A,0x96,0x00};
 bool s_wifi_is_connected = false;
 
 esp_err_t pkt_wifi2usb(void *buffer, uint16_t len, void *eb);
@@ -103,7 +103,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     size_t lenth = 0;
 
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_get_mac(ESP_IF_WIFI_STA, tud_network_mac_address);
+        uint8_t *tud_network_mac_address_dummy = tud_network_mac_address;
+        esp_wifi_get_mac(ESP_IF_WIFI_STA, tud_network_mac_address_dummy);
         // esp_wifi_connect();
         wifi_start = true;
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
