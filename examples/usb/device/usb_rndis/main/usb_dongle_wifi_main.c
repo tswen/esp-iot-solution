@@ -209,7 +209,7 @@ bool tud_network_wait_xmit(uint32_t ms)
   return false;
 }
 
-void tud_network_set_xmit_status(bool enable)
+void tud_network_idle_status_change_cb(bool enable)
 {
     if (enable == true) {
       xSemaphoreGive(semp);

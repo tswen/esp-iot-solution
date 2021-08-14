@@ -88,9 +88,9 @@ static void scan_done_handler(void* arg, esp_event_base_t event_base,
             ESP_LOGI(TAG, "[%s][rssi=%d]", ap_list_buffer[i].ssid, ap_list_buffer[i].rssi);
             lenth = sprintf(scan_buf, "[%s][rssi=%d]\r\n", ap_list_buffer[i].ssid, ap_list_buffer[i].rssi);
             tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)scan_buf, lenth);
-            tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
         }
     }
+    tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 1);
     free(scan_buf);
     free(ap_list_buffer);
     ESP_LOGI(TAG, "sta scan done");
