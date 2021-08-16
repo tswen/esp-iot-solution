@@ -3,6 +3,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 add_compile_options(-fdiagnostics-color=always)
+add_definitions(-w)
 
 #If IOT_SOLUTION_PATH is not defined, use relative path as default value
 if(NOT DEFINED ENV{IOT_SOLUTION_PATH})
@@ -16,4 +17,4 @@ set(EXTRA_COMPONENT_DIRS $ENV{IOT_SOLUTION_PATH}/components/FreeRTOS-Plus-CLI
                             
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
-project(usb_rndis)
+project(usb_dongle)
