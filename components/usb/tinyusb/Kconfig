@@ -185,6 +185,13 @@ menu "TinyUSB Stack"
                 help
                     Enable USB NET TinyUSB driver.
 
+            config TINYUSB_RNDIS_VENDOR
+                string "USB Vendor"
+                default "TinyUSB"
+                depends on TINYUSB_NET_ENABLED
+                help
+                    Vendor description.
+
         endmenu # "usb network"
     endif # TINYUSB
 

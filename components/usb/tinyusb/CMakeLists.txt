@@ -30,7 +30,6 @@ if(CONFIG_TINYUSB)
         "${IDF_PATH}/components/tinyusb/tinyusb/hw/bsp/"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/device"
-        "${IDF_PATH}/components/tinyusb/tinyusb/lib/networking"
         #"additions/include_private"
         )
 
@@ -38,6 +37,7 @@ if(CONFIG_TINYUSB)
         "${IDF_PATH}/components/tinyusb/tinyusb/src/"
         "additions/include"
         "additions/include_private"
+        "additions/tusb/src/lib/networking"
         # The FreeRTOS API include convention in tinyusb is different from esp-idf
         "${freertos_component_dir}/include/freertos"
         )
@@ -53,7 +53,6 @@ if(CONFIG_TINYUSB)
         "${IDF_PATH}/components/tinyusb/tinyusb/src/device/usbd_control.c"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/device/usbd.c"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/tusb.c"
-        "${IDF_PATH}/components/tinyusb/tinyusb/lib/networking/rndis_reports.c"
         "additions/src/descriptors_control.c"
         "additions/src/tinyusb.c"
         "additions/src/tusb_tasks.c"
@@ -84,7 +83,8 @@ if(CONFIG_TINYUSB)
 
     if(CONFIG_TINYUSB_NET_ENABLED)
       list(APPEND srcs
-          "additions/dummy/src/class/net/net_device.c")
+          "additions/tusb/src/class/net/net_device.c"
+          "additions/tusb/src/lib/networking/rndis_reports.c")
     endif()
 
 endif() # CONFIG_TINYUSB
