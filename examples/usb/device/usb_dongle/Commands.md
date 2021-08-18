@@ -19,35 +19,40 @@ help:
  Lists all the registered commands
 
 ap <ssid> [<password>]: configure ssid and password
-sta <ssid> [<password>]: join specified soft-AP
-query: query WiFi info
-mode <mode>: <sta> station mode <ap> ap mode
-startsmart: start smartconfig
-disconnect-wifi: disconnect from the AP
+sta -s <ssid> [-p <password>]: join specified soft-AP
+sta -d: disconnect specified soft-AP
+mode <mode>: <sta> station mode; <ap> ap mode
+smartconfig [op]: op:1, start smartconfig; op:0, stop smartconfig
 scan [<ssid>]: <ssid>  SSID of AP want to be scanned
-free: Get the current size of free heap memory
-heap: Get minimum size of free heap memory
+ram: Get the current size of free heap memory and minimum size of free heap memory
 restart: Software reset of the chip
 version: Get version of chip and SDK
+>
 ```
 
 #### 2.ap
 
 **Function:**
 
-启动 AP 模式
+设置 AP 模式、查询 AP 设置
 
-**Command:**
+**Set Command:**
 
 ```
 ap Soft_AP espressif
 ```
 
+**Query Command:**
+
+```
+ap
+```
+
 **Response:**
 
 ```
-Soft_AP
-espressif
+AP mode:Soft_AP,espressif
+>
 ```
 
 Note：
@@ -58,41 +63,25 @@ Note：
 
 **Function:**
 
-启动 Station 模式
+启动 Station 模式、查询所连接 AP 信息 
 
-**Command:**
-
-```
-sta AP_Test espressif
-```
-
-**Response:**
+**Set Command:**
 
 ```
-AP_Test
-espressif
+sta -s AP_Test -p espressif
 ```
 
-Note：
-
->password 为可选项
-
-#### 4.query
-
-**Function:**
-
-查询当前作为 Station 模式所连接路由器信息
-
-**Command:**
+**Query Command:**
 
 ```
-query
+sta
 ```
 
 **Response:**
 
 ```
 <ssid>,<channel>,<listen_interval>,<authmode>
+>
 ```
 
 | authmode_value | mode                      |
@@ -107,7 +96,28 @@ query
 |       7        | WIFI_AUTH_WPA2_WPA3_PSK   |
 |       8        | WIFI_AUTH_WAPI_PSK        |
 
-#### 5.mode
+Note：
+
+>password 为可选项
+
+**Function:**
+
+断开与 AP 的连接
+
+**Set Command:**
+
+```
+sta -d
+```
+
+**Response:**
+
+```
+OK
+>
+```
+
+#### 4.mode
 
 **Function:**
 
@@ -127,62 +137,59 @@ query
     mode ap
     ```
 
-#### 6.startsmart
+#### 5.smartconfig
 
 **Function:**
 
-开启 SmartConfig 配网
+* 开启 SmartConfig 配网
 
-**Command:**
+    **Command:**
 
-```
-startsmart
-```
+    ```
+    smartconfig 1
+    ```
 
-**Response:**
+    **Response:**
 
-```
-smartconfig start
-******
-Found channel
-************
-Got SSID and password
-SSID:AP_Test
-PASSWORD:espressif
+    ```
+    >SSID:FAST_XLZ,PASSWORD:12345678
+    OK
+    >
+    ```
 
-smartconfig over
-```
+* 关闭 SmartConfig 配网
+
+    **Command:**
+
+    ```
+    smartconfig 0
+    ```
+
+    **Response:**
+
+    ```
+    OK
+    >
+    ```
+
+    Note:
+
+    >使用 `smartconfig 1` 命令开启 SmartConfig 配网并成功连接后，不需要再使用 `smartconfig 0` 命令来关闭 SmartConfig 配网
+    >
+    >`smartconfig 0` 命令只需要在 SmartConfig 配网失败时进行调用
 
 配网步骤：
 
 >* 下载 ESPTOUCH APP ：[Android source code](https://github.com/EspressifApp/EsptouchForAndroid)    [iOS source code](https://github.com/EspressifApp/EsptouchForIOS) 
 >* 确保你的手机连接至目标 AP（2.4GHz）
 >* 打开 ESPTOUCH APP 输入 password 并确认
->* PC 端通过 USB 端口发送 `startsmart` 命令
+>* PC 端通过 USB 端口发送 `smartconfig 1` 命令
 
-#### 7.disconnect-wifi
-
-**Function:**
-
-断开与 AP 的连接
-
-**Command:**
-
-```
-disconnect-wifi
-```
-
-**Response:**
-
-```
-Successfully disconnected from the AP
-```
-
-#### 8.scan
+#### 6.scan
 
 **Function:**
 
-扫描 AP 并列出对应 SSID 以及 rssi
+扫描 AP 并列出对应 SSID 以及 RSSI
 
 **Command:**
 
@@ -201,47 +208,30 @@ Successfully disconnected from the AP
 **Response:**
 
 ```
-Start scan the AP
+>
 [ssid][rssi=-22]
 ```
 
-#### 9.free
+#### 7.ram
 
 **Function:**
 
-获取当前剩余内存大小
+获取当前剩余内存大小以及系统运行期间最小时内存大小
 
 **Command:**
 
 ```
-free
+ram
 ```
 
 **Response:**
 
 ```
-free heap size: 138912
+free heap size: 132612, min heap size: 116788
+>
 ```
 
-#### 10.heap
-
-**Function:**
-
-获取系统运行期间最小时内存大小
-
-**Command:**
-
-```
-free
-```
-
-**Response:**
-
-```
-min heap size: 134480
-```
-
-#### 11.restart
+#### 8.restart
 
 **Function:**
 
@@ -253,13 +243,7 @@ min heap size: 134480
 restart
 ```
 
-**Response:**
-
-```
-Restarting
-```
-
-#### 12.version
+#### 9.version
 
 **Function:**
 
@@ -279,5 +263,6 @@ Chip info:
 	cores:1
 	feature:/802.11bgn/External-Flash:2 MB
 	revision number:0
+>
 ```
 

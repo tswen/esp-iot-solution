@@ -68,17 +68,11 @@ static BaseType_t prvScanCommand( char *pcWriteBuffer, size_t xWriteBufferLen, c
 
 static BaseType_t prvAPCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
-static BaseType_t prvQueryCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-
 static BaseType_t prvSetWiFiModeCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
-static BaseType_t prvStartSmartCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
+static BaseType_t prvSmartConfigCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
-static BaseType_t prvWiFiDisconnectCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-
-static BaseType_t prvFreeCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-
-static BaseType_t prvHeapCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
+static BaseType_t prvRamCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
 static BaseType_t prvRestartCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
@@ -99,7 +93,7 @@ static const CLI_Command_Definition_t xTaskStatus =
 static const CLI_Command_Definition_t xStationCommand =
 {
 	"sta", /* The command string to type. */
-	"sta <ssid> [<password>]: join specified soft-AP\r\n",
+	"sta -s <ssid> [-p <password>]: join specified soft-AP\r\nsta -d: disconnect specified soft-AP\r\n",
 	prvStationCommand, /* The function to run. */
 	-1 /* The user can enter any number of commands. */
 };
@@ -122,57 +116,30 @@ static const CLI_Command_Definition_t xAPCommand =
 	-1 /* The user can enter any number of commands. */
 };
 
-/* Structure that defines the "query" command line command. */
-static const CLI_Command_Definition_t xQueryCommand =
-{
-	"query", /* The command string to type. */
-	"query: query WiFi info\r\n",
-	prvQueryCommand, /* The function to run. */
-	0 /* No parameters are expected. */
-};
-
 /* Structure that defines the "mode" command line command. */
 static const CLI_Command_Definition_t xSetWiFiModeCommand =
 {
 	"mode", /* The command string to type. */
-	"mode <mode>: <sta> station mode <ap> ap mode\r\n",
+	"mode <mode>: <sta> station mode; <ap> ap mode\r\n",
 	prvSetWiFiModeCommand, /* The function to run. */
 	1 /* one parameters are expected. */
 };
 
-/* Structure that defines the "startsmart" command line command. */
-static const CLI_Command_Definition_t xStartSmartCommand =
+/* Structure that defines the "smartconfig" command line command. */
+static const CLI_Command_Definition_t xSmartConfigCommand =
 {
-	"startsmart", /* The command string to type. */
-	"startsmart: start smartconfig\r\n",
-	prvStartSmartCommand, /* The function to run. */
-	0 /* No parameters are expected. */
+	"smartconfig", /* The command string to type. */
+	"smartconfig [op]: op:1, start smartconfig; op:0, stop smartconfig\r\n",
+	prvSmartConfigCommand, /* The function to run. */
+	1 /* No parameters are expected. */
 };
 
-/* Structure that defines the "disconnect-wifi" command line command. */
-static const CLI_Command_Definition_t xDisconnectWiFiCommand =
+/* Structure that defines the "ram" command line command. */
+static const CLI_Command_Definition_t xRamCommand =
 {
-	"disconnect-wifi", /* The command string to type. */
-	"disconnect-wifi: disconnect from the AP\r\n",
-	prvWiFiDisconnectCommand, /* The function to run. */
-	0 /* No parameters are expected. */
-};
-
-/* Structure that defines the "free" command line command. */
-static const CLI_Command_Definition_t xFreeCommand =
-{
-	"free", /* The command string to type. */
-	"free: Get the current size of free heap memory\r\n",
-	prvFreeCommand, /* The function to run. */
-	0 /* No parameters are expected. */
-};
-
-/* Structure that defines the "heap" command line command. */
-static const CLI_Command_Definition_t xHeapCommand =
-{
-	"heap", /* The command string to type. */
-	"heap: Get minimum size of free heap memory\r\n",
-	prvHeapCommand, /* The function to run. */
+	"ram", /* The command string to type. */
+	"ram: Get the current size of free heap memory and minimum size of free heap memory\r\n",
+	prvRamCommand, /* The function to run. */
 	0 /* No parameters are expected. */
 };
 
@@ -206,13 +173,10 @@ void vRegisterCLICommands( void )
 #endif
 	FreeRTOS_CLIRegisterCommand( &xAPCommand );
 	FreeRTOS_CLIRegisterCommand( &xStationCommand );
-	FreeRTOS_CLIRegisterCommand( &xQueryCommand );
 	FreeRTOS_CLIRegisterCommand( &xSetWiFiModeCommand );
-	FreeRTOS_CLIRegisterCommand( &xStartSmartCommand );
-	FreeRTOS_CLIRegisterCommand( &xDisconnectWiFiCommand );
+	FreeRTOS_CLIRegisterCommand( &xSmartConfigCommand );
 	FreeRTOS_CLIRegisterCommand( &xScanCommand );
-	FreeRTOS_CLIRegisterCommand( &xFreeCommand );
-	FreeRTOS_CLIRegisterCommand( &xHeapCommand );
+	FreeRTOS_CLIRegisterCommand( &xRamCommand );
 	FreeRTOS_CLIRegisterCommand( &xRestartCommand );
 	FreeRTOS_CLIRegisterCommand( &xGetVersionCommand );
 }
@@ -221,7 +185,7 @@ void vRegisterCLICommands( void )
 #if CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
 static BaseType_t prvTaskStatusCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
-const char *const pcHeader = "Task          State  Priority  Stack	#\r\n************************************************\r\n";
+	const char *const pcHeader = "Task          State  Priority  Stack	#\r\n************************************************\r\n";
 
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
@@ -246,8 +210,8 @@ const char *const pcHeader = "Task          State  Priority  Stack	#\r\n********
 
 static BaseType_t prvStationCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
-char *pcSSID, *pcPassWord;
-BaseType_t xSSIDLength, xPassWordLength;
+	char *pc1, *pc2, *pc3, *pc4, *pc5, pc6;
+	BaseType_t xLength1, xLength2, xLength3, xLength4, xLength5, xLength6;
 
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
@@ -257,47 +221,137 @@ BaseType_t xSSIDLength, xPassWordLength;
 	configASSERT( pcWriteBuffer );
 	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
 
-	/* Obtain the ssid of AP. */
-	pcPassWord = ( char * ) FreeRTOS_CLIGetParameter
-									(
-										pcCommandString,		/* The command string itself. */
-										2,						/* Return the second parameter. */
-										&xPassWordLength	/* Store the parameter string length. */
-									);
-
-	/* Obtain the password of AP */
-	pcSSID = ( char * ) FreeRTOS_CLIGetParameter
+	/* Obtain the sixth parameter */
+	pc6 = ( char * ) FreeRTOS_CLIGetParameter
 								(
-									pcCommandString,		/* The command string itself. */
-									1,						/* Return the first parameter. */
-									&xSSIDLength	/* Store the parameter string length. */
+									pcCommandString,    /* The command string itself. */
+									6,                  /* Return the first parameter. */
+									&xLength6           /* Store the parameter string length. */
 								);
 
-	/* Sanity check something was returned. */
-	configASSERT( pcSSID );
+	/* Obtain the fifth parameter */
+	pc5 = ( char * ) FreeRTOS_CLIGetParameter
+								(
+									pcCommandString,    /* The command string itself. */
+									5,                  /* Return the first parameter. */
+									&xLength5           /* Store the parameter string length. */
+								);
 
-	/* Terminate the string. */
-	pcSSID[ xSSIDLength ] = 0x00;
+	/* Obtain the fourth parameter */
+	pc4 = ( char * ) FreeRTOS_CLIGetParameter
+								(
+									pcCommandString,    /* The command string itself. */
+									4,                  /* Return the first parameter. */
+									&xLength4           /* Store the parameter string length. */
+								);
 
-	/* Return the parameter string. */
-	strncat( pcWriteBuffer, cliNEW_LINE, strlen( cliNEW_LINE )+1 );
-	strncat( pcWriteBuffer, pcSSID, ( size_t ) xSSIDLength );
-	strncat( pcWriteBuffer, cliNEW_LINE, strlen( cliNEW_LINE )+1 );
+	/* Obtain the third parameter. */
+	pc3 = ( char * ) FreeRTOS_CLIGetParameter
+								(
+									pcCommandString,    /* The command string itself. */
+									3,                  /* Return the second parameter. */
+									&xLength3           /* Store the parameter string length. */
+								);
 
-	if (pcPassWord == NULL) {
-		/* TODO */ 
-		wifi_cmd_sta_join(pcSSID, null_password);
-		printf("the ssid is %s.\r\n", pcSSID);
-		printf("the ssid len is %d.\r\n", xSSIDLength);
+	/* Obtain the second parameter */
+	pc2 = ( char * ) FreeRTOS_CLIGetParameter
+								(
+									pcCommandString,    /* The command string itself. */
+									2,                  /* Return the first parameter. */
+									&xLength2           /* Store the parameter string length. */
+								);
+
+	/* Obtain the first parameter. */
+	pc1 = ( char * ) FreeRTOS_CLIGetParameter
+								(
+									pcCommandString,    /* The command string itself. */
+									1,                  /* Return the second parameter. */
+									&xLength1           /* Store the parameter string length. */
+								);
+
+	if (pc1 == NULL) {
+		wifi_cmd_query();
+		return pdFALSE;
 	} else {
-		/* TODO */
-		wifi_cmd_sta_join(pcSSID, pcPassWord);
-		strncat( pcWriteBuffer, pcPassWord, ( size_t ) xPassWordLength );
-		printf("the ssid is %s, the password is %s.\r\n", pcSSID, pcPassWord);
-		printf("the ssid len is %d, the password len is %d.\r\n", xSSIDLength, xPassWordLength);
+		/* Sanity check something was returned. */
+		configASSERT( pc1 );
+		/* Terminate the string. */
+		pc1[ xLength1 ] = 0x00;
+
+		if(strncmp(pc1, "-d", strlen("-d")) == 0) {
+			if (wif_cmd_disconnect_wifi() == ESP_OK) {
+				sprintf(pcWriteBuffer, "OK\r\n");
+			} else {
+				sprintf(pcWriteBuffer, "FAIL\r\n");
+			}
+			return pdFALSE;
+		} else if(strncmp(pc1, "-s", strlen("-s")) != 0) {
+			sprintf(pcWriteBuffer, "Invalid parameter\r\n");
+			return pdFALSE;
+		}
 	}
 
-	strncat( pcWriteBuffer, cliNEW_LINE, strlen( cliNEW_LINE )+1 );
+	if (pc2 == NULL) {
+		sprintf(pcWriteBuffer, "Invalid parameter\r\n");
+		return pdFALSE;
+	} else {
+		if (pc3 == NULL) {
+			wifi_cmd_sta_join(pc2, null_password);
+			printf("the ssid is %s.\r\n", pc2);
+			printf("the ssid len is %d.\r\n", xLength2);
+			return pdFALSE;
+		}
+	}
+
+	if (pc4 == NULL) {
+		wifi_cmd_sta_join(pc2, null_password);
+		printf("the ssid is %s.\r\n", pc2);
+		printf("the ssid len is %d.\r\n", (xLength2 + xLength3 + 1));
+		return pdFALSE;
+	}
+
+	if (pc5 == NULL) {
+		/* Terminate the string. */
+		pc2[ xLength2 ] = 0x00;
+
+		if(strncmp(pc3, "-p", strlen("-p")) != 0) {
+			sprintf(pcWriteBuffer, "Invalid parameter\r\n");
+			return pdFALSE;
+		}
+		/* Terminate the string. */
+		pc3[ xLength3 ] = 0x00;
+		wifi_cmd_sta_join(pc2, pc4);
+		printf("the ssid is %s, the password is %s.\r\n", pc2, pc4);
+		printf("the ssid len is %d, the password len is %d.\r\n", xLength2, xLength4);
+		return pdFALSE;
+	}
+
+	if (pc6 == NULL) {
+		if(strncmp(pc3, "-p", strlen("-p")) == 0) {    
+			if(strncmp(pc4, "-p", strlen("-p")) != 0) {
+				/* Terminate the string. */
+				pc2[ xLength2 ] = 0x00;
+				pc3[ xLength3 ] = 0x00;
+				wifi_cmd_sta_join(pc2, pc4);
+				printf("the ssid is %s, the password is %s.\r\n", pc2, pc4);
+				printf("the ssid len is %d, the password len is %d.\r\n", xLength2, (xLength4 + xLength5 + 1));
+				return pdFALSE;
+			}
+		}
+		/* Terminate the string. */
+		pc3[ xLength3 ] = 0x00;
+		pc4[ xLength4 ] = 0x00;
+		wifi_cmd_sta_join(pc2, pc5);
+		printf("the ssid is %s, the password is %s.\r\n", pc2, pc5);
+		printf("the ssid len is %d, the password len is %d.\r\n", (xLength2 + xLength3 + 1), xLength5);
+	} else {
+		/* Terminate the string. */
+		pc3[ xLength3 ] = 0x00;
+		pc4[ xLength4 ] = 0x00;
+		wifi_cmd_sta_join(pc2, pc5);
+		printf("the ssid is %s, the password is %s.\r\n", pc2, pc5);
+		printf("the ssid len is %d, the password len is %d.\r\n", (xLength2 + xLength3 + 1), (xLength5 + xLength6 + 1));
+	}
 
 	return pdFALSE;
 }
@@ -305,8 +359,8 @@ BaseType_t xSSIDLength, xPassWordLength;
 
 static BaseType_t prvScanCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
-const char *pcSSID;
-BaseType_t SSIDLength;
+	const char *pcSSID;
+	BaseType_t SSIDLength;
 
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
@@ -319,9 +373,9 @@ BaseType_t SSIDLength;
 	/* Obtain the SSID of AP . */
 	pcSSID = FreeRTOS_CLIGetParameter
 					(
-						pcCommandString,		/* The command string itself. */
-						1,						/* Return the first parameter. */
-						&SSIDLength	/* Store the parameter string length. */
+						pcCommandString,    /* The command string itself. */
+						1,                  /* Return the first parameter. */
+						&SSIDLength         /* Store the parameter string length. */
 					);
 
 	if (pcSSID == NULL) {
@@ -332,8 +386,6 @@ BaseType_t SSIDLength;
 		wifi_cmd_sta_scan(pcSSID);
 	}
 
-	sprintf(pcWriteBuffer, "\r\nStart scan the AP\r\n");
-
 	/* There is no more data to return after this single string, so return
 	pdFALSE. */
 	return pdFALSE;
@@ -342,8 +394,8 @@ BaseType_t SSIDLength;
 
 static BaseType_t prvAPCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
-char *pcSSID, *pcPassWord;
-BaseType_t xSSIDLength, xPassWordLength;
+	char *pcSSID, *pcPassWord;
+	BaseType_t xSSIDLength, xPassWordLength;
 
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
@@ -356,29 +408,29 @@ BaseType_t xSSIDLength, xPassWordLength;
 	/* Obtain the ssid of AP. */
 	pcPassWord = ( char * ) FreeRTOS_CLIGetParameter
 									(
-										pcCommandString,		/* The command string itself. */
-										2,						/* Return the second parameter. */
-										&xPassWordLength	/* Store the parameter string length. */
+										pcCommandString,    /* The command string itself. */
+										2,                  /* Return the second parameter. */
+										&xPassWordLength    /* Store the parameter string length. */
 									);
 
 	/* Obtain the password of AP */
 	pcSSID = ( char * ) FreeRTOS_CLIGetParameter
 								(
-									pcCommandString,		/* The command string itself. */
-									1,						/* Return the first parameter. */
-									&xSSIDLength	/* Store the parameter string length. */
+									pcCommandString,    /* The command string itself. */
+									1,                  /* Return the first parameter. */
+									&xSSIDLength        /* Store the parameter string length. */
 								);
 
+	if (pcSSID == NULL) {
+		wifi_cmd_query();
+		return pdFALSE;
+	}
+	
 	/* Sanity check something was returned. */
 	configASSERT( pcSSID );
 
 	/* Terminate the string. */
 	pcSSID[ xSSIDLength ] = 0x00;
-
-	/* Return the parameter string. */
-	strncat( pcWriteBuffer, cliNEW_LINE, strlen( cliNEW_LINE )+1 );
-	strncat( pcWriteBuffer, pcSSID, ( size_t ) xSSIDLength );
-	strncat( pcWriteBuffer, cliNEW_LINE, strlen( cliNEW_LINE )+1 );
 
 	if (pcPassWord == NULL) {
 		/* TODO */ 
@@ -388,39 +440,18 @@ BaseType_t xSSIDLength, xPassWordLength;
 	} else {
 		/* TODO */
 		wifi_cmd_ap_set(pcSSID, pcPassWord);
-		strncat( pcWriteBuffer, pcPassWord, ( size_t ) xPassWordLength );
 		printf("the ssid is %s, the password is %s.\r\n", pcSSID, pcPassWord);
 		printf("the ssid len is %d, the password len is %d.\r\n", xSSIDLength, xPassWordLength);
 	}
 
-	strncat( pcWriteBuffer, cliNEW_LINE, strlen( cliNEW_LINE )+1 );
-
-	return pdFALSE;
-}
-/*-----------------------------------------------------------*/
-
-static BaseType_t prvQueryCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
-{
-	/* Remove compile time warnings about unused parameters, and check the
-	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
-	write buffer length is adequate, so does not check for buffer overflows. */
-	( void ) pcCommandString;
-	( void ) xWriteBufferLen;
-	configASSERT( pcWriteBuffer );
-	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
-
-	wifi_cmd_query();
-
-	/* There is no more data to return after this single string, so return
-	pdFALSE. */
 	return pdFALSE;
 }
 /*-----------------------------------------------------------*/
 
 static BaseType_t prvSetWiFiModeCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
-const char *pcWiFiMode;
-BaseType_t WiFiModeLength;
+	const char *pcWiFiMode;
+	BaseType_t WiFiModeLength;
 
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
@@ -433,15 +464,17 @@ BaseType_t WiFiModeLength;
 	/* Obtain the parameter string. */
 	pcWiFiMode = FreeRTOS_CLIGetParameter
 					(
-						pcCommandString,		/* The command string itself. */
-						1,						/* Return the first parameter. */
-						&WiFiModeLength	/* Store the parameter string length. */
+						pcCommandString,    /* The command string itself. */
+						1,                  /* Return the first parameter. */
+						&WiFiModeLength     /* Store the parameter string length. */
 					);
 
 	/* Sanity check something was returned. */
 	configASSERT( pcWiFiMode );
 
-	wifi_cmd_set_mode(pcWiFiMode);
+	if (wifi_cmd_set_mode(pcWiFiMode) == ESP_FAIL) {
+		sprintf(pcWriteBuffer, "Invalid parameter\r\n");
+	}
 
 	/* There is no more data to return after this single string, so return
 	pdFALSE. */
@@ -449,8 +482,11 @@ BaseType_t WiFiModeLength;
 }
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvStartSmartCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
+static BaseType_t prvSmartConfigCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
+	const char *pcSmartConfig;
+	BaseType_t Length;
+
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
 	write buffer length is adequate, so does not check for buffer overflows. */
@@ -459,50 +495,38 @@ static BaseType_t prvStartSmartCommand( char *pcWriteBuffer, size_t xWriteBuffer
 	configASSERT( pcWriteBuffer );
 	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
 
-	if (wifi_cmd_start_smart_config() == ESP_FAIL) {
-		sprintf(pcWriteBuffer, "\r\nSmartConfig Task has been created, Don't create repeatedly\r\n");
+	/* Obtain the parameter string. */
+	pcSmartConfig = FreeRTOS_CLIGetParameter
+					(
+						pcCommandString,    /* The command string itself. */
+						1,                  /* Return the first parameter. */
+						&Length             /* Store the parameter string length. */
+					);
+
+	/* Sanity check something was returned. */
+	configASSERT( pcSmartConfig );
+
+	/* There are only two valid parameter values. */
+	if(strncmp(pcSmartConfig, "0", strlen("0")) == 0) {
+		if (wifi_cmd_stop_smart_config() == ESP_OK) {
+			sprintf(pcWriteBuffer, "OK\r\n");
+		} else {
+			sprintf(pcWriteBuffer, "FAIL\r\n");
+		}
+		// sprintf(pcWriteBuffer, "Stop SmartConfig\r\n");
+	} else if (strncmp(pcSmartConfig, "1", strlen("1")) == 0) {
+		if (wifi_cmd_start_smart_config() == ESP_FAIL) {
+			sprintf(pcWriteBuffer, "SmartConfig Task has been created, Don't create repeatedly\r\n");
+		}
+	} else {
+		sprintf(pcWriteBuffer, "Valid parameters are '0' and '1'\r\n");
 	}
 
 	return pdFALSE;
 }
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvWiFiDisconnectCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
-{
-	/* Remove compile time warnings about unused parameters, and check the
-	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
-	write buffer length is adequate, so does not check for buffer overflows. */
-	( void ) pcCommandString;
-	( void ) xWriteBufferLen;
-	configASSERT( pcWriteBuffer );
-	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
-
-	if (wif_cmd_disconnect_wifi() == ESP_OK) {
-		sprintf(pcWriteBuffer, "\r\nSuccessfully disconnected from the AP\r\n");
-	}
-
-	return pdFALSE;
-}
-/*-----------------------------------------------------------*/
-
-static BaseType_t prvFreeCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
-{
-	/* Remove compile time warnings about unused parameters, and check the
-	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
-	write buffer length is adequate, so does not check for buffer overflows. */
-	( void ) pcCommandString;
-	( void ) xWriteBufferLen;
-	configASSERT( pcWriteBuffer );
-	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
-
-	uint32_t size = esp_get_free_heap_size();
-	sprintf(pcWriteBuffer, "\r\nfree heap size: %d\r\n", size);
-
-	return pdFALSE;
-}
-/*-----------------------------------------------------------*/
-
-static BaseType_t prvHeapCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
+static BaseType_t prvRamCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the
@@ -513,7 +537,9 @@ static BaseType_t prvHeapCommand( char *pcWriteBuffer, size_t xWriteBufferLen, c
 	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
 
 	uint32_t heap_size = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
-	sprintf(pcWriteBuffer, "\r\nmin heap size: %u\r\n", heap_size);
+	uint32_t size = esp_get_free_heap_size();
+
+	sprintf(pcWriteBuffer, "free heap size: %d, min heap size: %u\r\n", size, heap_size);
 
 	return pdFALSE;
 }
@@ -528,10 +554,6 @@ static BaseType_t prvRestartCommand( char *pcWriteBuffer, size_t xWriteBufferLen
 	( void ) xWriteBufferLen;
 	configASSERT( pcWriteBuffer );
 	memset( pcWriteBuffer, 0x00, xWriteBufferLen );
-
-	sprintf(pcWriteBuffer, "\r\nRestarting\r\n");
-	tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)pcWriteBuffer, strlen(pcWriteBuffer));
-    tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
 	
     esp_restart();
 
@@ -551,7 +573,7 @@ static BaseType_t prvGetVersionCommand( char *pcWriteBuffer, size_t xWriteBuffer
 
     esp_chip_info_t info;
     esp_chip_info(&info);
-	sprintf(pcWriteBuffer, "\r\nIDF Version:%s\r\nChip info:\r\n\tcores:%d\r\n\tfeature:%s%s%s%s%d%s\r\n\trevision number:%d\r\n", 
+	sprintf(pcWriteBuffer, "IDF Version:%s\r\nChip info:\r\n\tcores:%d\r\n\tfeature:%s%s%s%s%d%s\r\n\trevision number:%d\r\n", 
 							esp_get_idf_version(),
 							info.cores,
 							info.features & CHIP_FEATURE_WIFI_BGN ? "/802.11bgn" : "",

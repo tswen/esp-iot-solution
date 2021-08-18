@@ -73,7 +73,7 @@ ESP BOARD          USB CONNECTOR (type A)
 5. 通过指令来控制 ESP 设备进行配网操作
 
     * [通过 sta 命令来连接至对应路由器](./Commands.md#3sta)
-    * [通过 startsmart 命令开启 smartconfig 配网](./Commands.md#6startsmart)
+    * [通过 startsmart 命令开启 smartconfig 配网](./Commands.md#5startsmart)
 
 注意！
 

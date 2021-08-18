@@ -43,12 +43,10 @@
 static const char *TAG = "rndis_wifi";
 
 static TaskHandle_t Smart_Config_Handle = NULL;
-static TaskHandle_t Wait_Handle = NULL;
 
 static bool reconnect = true;
 static bool wifi_start = false;
 static bool smart_config = false;
-static bool wait = false;
 
 static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
@@ -74,22 +72,32 @@ static void scan_done_handler(void* arg, esp_event_base_t event_base,
     esp_wifi_scan_get_ap_num(&sta_number);
     if (!sta_number) {
         ESP_LOGE(TAG, "No AP found");
+        lenth = sprintf(scan_buf, "\r\nNo AP found\r\n>");
+        tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)scan_buf, lenth);
+        tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
+        free(scan_buf);
         return;
     }
 
     ap_list_buffer = malloc(sta_number * sizeof(wifi_ap_record_t));
     if (ap_list_buffer == NULL) {
         ESP_LOGE(TAG, "Failed to malloc buffer to print scan results");
+        lenth = sprintf(scan_buf, "\r\nFailed to malloc\r\n>");
+        tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)scan_buf, lenth);
+        tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
+        free(scan_buf);
         return;
     }
 
     if (esp_wifi_scan_get_ap_records(&sta_number,(wifi_ap_record_t *)ap_list_buffer) == ESP_OK) {        
         for(i=0; i<sta_number; i++) {
             ESP_LOGI(TAG, "[%s][rssi=%d]", ap_list_buffer[i].ssid, ap_list_buffer[i].rssi);
-            lenth = sprintf(scan_buf, "[%s][rssi=%d]\r\n", ap_list_buffer[i].ssid, ap_list_buffer[i].rssi);
+            lenth = sprintf(scan_buf, "\r\n[%s][rssi=%d]", ap_list_buffer[i].ssid, ap_list_buffer[i].rssi);
             tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)scan_buf, lenth);
         }
     }
+    lenth = sprintf(scan_buf, "\r\n>");
+    tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)scan_buf, lenth);
     tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 1);
     free(scan_buf);
     free(ap_list_buffer);
@@ -133,18 +141,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     } else if (event_base == SC_EVENT && event_id == SC_EVENT_SCAN_DONE) {
         ESP_LOGI(TAG, "Scan done");
     } else if (event_base == SC_EVENT && event_id == SC_EVENT_FOUND_CHANNEL) {
-        wait = false;
         ESP_LOGI(TAG, "Found channel");
-        lenth = sprintf(wifi_event_buf, "\r\nFound channel\r\n");
-        tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)wifi_event_buf, lenth);
-        tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
-        wait = true;
     } else if (event_base == SC_EVENT && event_id == SC_EVENT_GOT_SSID_PSWD) {
-        wait = false;
         ESP_LOGI(TAG, "Got SSID and password");
-        lenth = sprintf(wifi_event_buf, "\r\nGot SSID and password\r\n");
-        tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)wifi_event_buf, lenth);
-        tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
 
         smartconfig_event_got_ssid_pswd_t *evt = (smartconfig_event_got_ssid_pswd_t *)event_data;
         wifi_config_t wifi_config;
@@ -163,7 +162,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         memcpy(ssid, evt->ssid, sizeof(evt->ssid));
         memcpy(password, evt->password, sizeof(evt->password));
         ESP_LOGI(TAG, "SSID:%s    PASSWORD:%s", ssid, password);
-        lenth = sprintf(wifi_event_buf, "SSID:%s\r\nPASSWORD:%s\r\n", ssid, password);
+        lenth = sprintf(wifi_event_buf, "SSID:%s,PASSWORD:%s\r\n", ssid, password);
         tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)wifi_event_buf, lenth);
         tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
 
@@ -214,13 +213,16 @@ static uint32_t wifi_get_local_ip(void)
 
 esp_err_t wifi_cmd_set_mode(char* mode)
 {
+    esp_err_t ret = ESP_FAIL;
     if (!strncmp(mode, "sta", strlen("sta"))) {
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+        ret = ESP_OK;
     } else if (!strncmp(mode, "ap", strlen("ap"))) {
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+        ret = ESP_OK;
     }
 
-    return ESP_OK;
+    return ret;
 }
 
 esp_err_t wifi_cmd_sta_join(const char* ssid, const char* pass)
@@ -312,6 +314,7 @@ esp_err_t wifi_cmd_query(void)
 {
     wifi_config_t cfg = {0};
     wifi_mode_t mode;
+    char *query_buf = (char *)malloc(128);
 
     memset(&cfg, 0, sizeof(cfg));
 
@@ -319,16 +322,17 @@ esp_err_t wifi_cmd_query(void)
     if (WIFI_MODE_AP == mode) {
         esp_wifi_get_config(WIFI_IF_AP, &cfg);
         ESP_LOGI(TAG, "AP mode, %s %s", cfg.ap.ssid, cfg.ap.password);
+        size_t lenth = sprintf(query_buf, "AP mode:%s,%s\r\n", cfg.ap.ssid, cfg.ap.password);
+        tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)query_buf, lenth);
+        tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
     } else if (WIFI_MODE_STA == mode) {
         int bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, 0, 1, 0);
         if (bits & CONNECTED_BIT) {
-            char *query_buf = (char *)malloc(128);
             esp_wifi_get_config(WIFI_IF_STA, &cfg);
-            ESP_LOGI(TAG, "query: %s,%d,%d,%d", cfg.sta.ssid, cfg.sta.channel, cfg.sta.listen_interval, cfg.sta.threshold.authmode);
-            size_t lenth = sprintf(query_buf, "\r\nquery: %s,%d,%d,%d\r\n",  cfg.sta.ssid, cfg.sta.channel, cfg.sta.listen_interval, cfg.sta.threshold.authmode);
+            ESP_LOGI(TAG, "STA mode: %s,%d,%d,%d", cfg.sta.ssid, cfg.sta.channel, cfg.sta.listen_interval, cfg.sta.threshold.authmode);
+            size_t lenth = sprintf(query_buf, "STA mode:%s,%d,%d,%d\r\n", cfg.sta.ssid, cfg.sta.channel, cfg.sta.listen_interval, cfg.sta.threshold.authmode);
             tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)query_buf, lenth);
             tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
-            free(query_buf);
         } else {
             ESP_LOGI(TAG, "sta mode, disconnected");
         }
@@ -336,7 +340,7 @@ esp_err_t wifi_cmd_query(void)
         ESP_LOGI(TAG, "NULL mode");
         return ESP_FAIL;
     }
-
+    free(query_buf);
     return ESP_OK;
 }
 
@@ -346,10 +350,6 @@ static void smartconfig_task(void * parm)
     char *sm_buf = (char *)malloc(52);
     ESP_ERROR_CHECK(esp_smartconfig_set_type(SC_TYPE_ESPTOUCH));
     smartconfig_start_config_t cfg = SMARTCONFIG_START_CONFIG_DEFAULT();
-    size_t lenth = sprintf(sm_buf, "\r\nsmartconfig start\r\n");
-    tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)sm_buf, lenth);
-    tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
-    wait = true;
     wif_cmd_disconnect_wifi();
     ESP_ERROR_CHECK(esp_smartconfig_start(&cfg));
     while (1) {
@@ -359,29 +359,15 @@ static void smartconfig_task(void * parm)
         }
         if(uxBits & ESPTOUCH_DONE_BIT) {
             ESP_LOGI(TAG, "smartconfig over");
-            size_t lenth = sprintf(sm_buf, "\r\nsmartconfig over\r\n");
+            size_t lenth = sprintf(sm_buf, "OK\r\n>");
             tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)sm_buf, lenth);
             tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
             esp_smartconfig_stop();
             smart_config = false;
             ESP_LOGI(TAG, "free the buffer taken by smartconfig");
             free(sm_buf);
-            vTaskDelete(Wait_Handle);
             vTaskDelete(NULL);
         }
-    }
-}
-
-static void wait_task(void * parm)
-{
-    char *buf = (char *)malloc(52);
-    size_t lenth = sprintf(buf, "*");
-    while (1) {
-        if (wait) {
-            tinyusb_cdcacm_write_queue(ITF_NUM_CDC, (uint8_t*)buf, lenth);
-            tinyusb_cdcacm_write_flush(ITF_NUM_CDC, 0);
-        }
-        vTaskDelay(800 / portTICK_PERIOD_MS);
     }
 }
 
@@ -392,8 +378,7 @@ esp_err_t wifi_cmd_start_smart_config(void)
             printf("SmartConfig Task is Created\r\n");
             return ESP_FAIL;
         }
-        xTaskCreate(smartconfig_task, "smartconfig_task", 4096, NULL, 3, Smart_Config_Handle);
-        xTaskCreate(wait_task, "wait_task", 2048, NULL, 3, Wait_Handle);
+        xTaskCreate(smartconfig_task, "smartconfig_task", 4096, NULL, 3, &Smart_Config_Handle);
         printf("Smart Config Task Create Success\r\n");
         smart_config = true;
         return ESP_OK;
@@ -403,12 +388,14 @@ esp_err_t wifi_cmd_start_smart_config(void)
 
 esp_err_t wifi_cmd_stop_smart_config(void)
 {
-    if (wifi_start) {
-        if (smart_config) {
-            vTaskDelete(Wait_Handle);
-            vTaskDelete(Smart_Config_Handle);
-            return ESP_OK;
-        }
+    if (smart_config) {
+        ESP_LOGI(TAG, "stop smartconfig");
+        esp_smartconfig_stop();
+        smart_config = false;
+        ESP_LOGI(TAG, "free the buffer taken by smartconfig");
+        vTaskDelete(Smart_Config_Handle);
+        printf("delete OK\r\n");
+        return ESP_OK;
     }
     return ESP_FAIL;
 }

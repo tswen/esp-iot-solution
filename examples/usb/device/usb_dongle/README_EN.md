@@ -102,12 +102,12 @@ view the currently supported commands and usage through the help command.
 
 You can choose any of the following methods to configure the network
 
-### 1. Use the `sta` command to directly connect to the corresponding AP
+### [1. Use the `sta` command to directly connect to the corresponding AP](./Commands.md#3sta)
 
 **Example**
 
 ```
-sta <ssid> [<password>]
+sta -s <ssid> -p [<password>]
 ```
 
 **Notes**
@@ -122,7 +122,7 @@ sta <ssid> [<password>]
     >
     >ifconfig ethxxx up    
 
-### 2. smartconfig network configuration
+### [2. smartconfig network configuration](./Commands.md#5startsmart)
 
 (1) Hardware Required
 
@@ -137,7 +137,7 @@ Download ESPTOUCH APP from app store: [Android source code](https://github.com/E
 **Example**
 
 ```
-startsmart
+smartconfig 1
 ```
 
 **Notes**
