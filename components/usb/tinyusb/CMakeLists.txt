@@ -30,6 +30,7 @@ if(CONFIG_TINYUSB)
         "${IDF_PATH}/components/tinyusb/tinyusb/hw/bsp/"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/"
         "${IDF_PATH}/components/tinyusb/tinyusb/src/device"
+        "${IDF_PATH}/components/tinyusb/tinyusb/src/class/bth"
         #"additions/include_private"
         )
 
@@ -85,6 +86,11 @@ if(CONFIG_TINYUSB)
       list(APPEND srcs
           "additions/tusb/src/class/net/net_device.c"
           "additions/tusb/src/lib/networking/rndis_reports.c")
+    endif()
+
+    if(CONFIG_TINYUSB_BTH_ENABLED)
+      list(APPEND srcs
+          "${IDF_PATH}/components/tinyusb/tinyusb/src/class/bth/bth_device.c")
     endif()
 
 endif() # CONFIG_TINYUSB

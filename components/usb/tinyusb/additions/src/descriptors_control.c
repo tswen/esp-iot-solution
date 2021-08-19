@@ -36,6 +36,11 @@ uint8_t const desc_configuration[] = {
     // Config number, interface count, string index, total length, attribute, power in mA
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, TUSB_DESC_TOTAL_LEN, 0, 100),
 #endif
+#if CFG_TUD_BTH
+    // BT Primary controller descriptor
+    // Interface number, string index, attributes, event endpoint, event endpoint size, interval, data in, data out, data endpoint size, iso endpoint sizes
+    TUD_BTH_DESCRIPTOR(ITF_NUM_BTH, 0 /* STRID_BTH_INTERFACE */, 0x80 | EPNUM_BT_EVT, 16, 1, 0x80 | EPNUM_BT_BULK_OUT, EPNUM_BT_BULK_OUT, 64, 0, 9, 17, 25, 33, 49),
+#endif
 #if CFG_TUD_NET
 #if CONFIG_TINYUSB_NET_ECM
     // Interface number, description string index, MAC address string index, EP notification address and size, EP data address (out, in), and size, max segment size.
